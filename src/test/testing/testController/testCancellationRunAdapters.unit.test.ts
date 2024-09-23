@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 //  Copyright (c) Microsoft Corporation. All rights reserved.
 //  Licensed under the MIT License.
-import { CancellationTokenSource, TestRun, Uri } from 'vscode';
+import { CancellationTokenSource, TestRun, TestRunProfileKind, Uri } from 'vscode';
 import * as typeMoq from 'typemoq';
 import * as sinon from 'sinon';
 import * as path from 'path';
@@ -28,7 +28,7 @@ suite('Execution Flow Run Adapters', () => {
     (global as any).EXTENSION_ROOT_DIR = EXTENSION_ROOT_DIR;
     let myTestPath: string;
     let mockProc: MockChildProcess;
-    let utilsStartTestIdsNamedPipe: sinon.SinonStub;
+    let utilsWriteTestIdsFileStub: sinon.SinonStub;
     let utilsStartRunResultNamedPipe: sinon.SinonStub;
     let serverDisposeStub: sinon.SinonStub;
 
@@ -47,7 +47,7 @@ suite('Execution Flow Run Adapters', () => {
         execFactoryStub = typeMoq.Mock.ofType<IPythonExecutionFactory>();
 
         // mocked utility functions that handle pipe related functions
-        utilsStartTestIdsNamedPipe = sinon.stub(util, 'startTestIdsNamedPipe');
+        utilsWriteTestIdsFileStub = sinon.stub(util, 'writeTestIdsFile');
         utilsStartRunResultNamedPipe = sinon.stub(util, 'startRunResultNamedPipe');
         serverDisposeStub = sinon.stub();
 
@@ -72,7 +72,7 @@ suite('Execution Flow Run Adapters', () => {
                 .returns(() => {
                     cancellationToken.cancel();
                     return {
-                        proc: mockProc,
+                        proc: mockProc as any,
                         out: typeMoq.Mock.ofType<Observable<Output<string>>>().object,
                         dispose: () => {
                             /* no-body */
@@ -87,7 +87,7 @@ suite('Execution Flow Run Adapters', () => {
 
             // test ids named pipe mocking
             const deferredStartTestIdsNamedPipe = createDeferred();
-            utilsStartTestIdsNamedPipe.callsFake(() => {
+            utilsWriteTestIdsFileStub.callsFake(() => {
                 deferredStartTestIdsNamedPipe.resolve();
                 return Promise.resolve('named-pipe');
             });
@@ -126,7 +126,7 @@ suite('Execution Flow Run Adapters', () => {
             await testAdapter.runTests(
                 Uri.file(myTestPath),
                 [],
-                false,
+                TestRunProfileKind.Run,
                 testRunMock.object,
                 execFactoryStub.object,
                 debugLauncher.object,
@@ -150,7 +150,7 @@ suite('Execution Flow Run Adapters', () => {
                 .returns(() => {
                     cancellationToken.cancel();
                     return {
-                        proc: mockProc,
+                        proc: mockProc as any,
                         out: typeMoq.Mock.ofType<Observable<Output<string>>>().object,
                         dispose: () => {
                             /* no-body */
@@ -165,7 +165,7 @@ suite('Execution Flow Run Adapters', () => {
 
             // test ids named pipe mocking
             const deferredStartTestIdsNamedPipe = createDeferred();
-            utilsStartTestIdsNamedPipe.callsFake(() => {
+            utilsWriteTestIdsFileStub.callsFake(() => {
                 deferredStartTestIdsNamedPipe.resolve();
                 return Promise.resolve('named-pipe');
             });
@@ -220,7 +220,7 @@ suite('Execution Flow Run Adapters', () => {
             await testAdapter.runTests(
                 Uri.file(myTestPath),
                 [],
-                true,
+                TestRunProfileKind.Debug,
                 testRunMock.object,
                 execFactoryStub.object,
                 debugLauncher.object,

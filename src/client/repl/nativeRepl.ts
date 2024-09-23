@@ -19,7 +19,10 @@ import { executeNotebookCell, openInteractiveREPL, selectNotebookKernel } from '
 import { createReplController } from './replController';
 import { EventName } from '../telemetry/constants';
 import { sendTelemetryEvent } from '../telemetry';
+import { VariablesProvider } from './variables/variablesProvider';
+import { VariableRequester } from './variables/variableRequester';
 
+let nativeRepl: NativeRepl | undefined; // In multi REPL scenario, hashmap of URI to Repl.
 export class NativeRepl implements Disposable {
     // Adding ! since it will get initialized in create method, not the constructor.
     private pythonServer!: PythonServer;
@@ -34,6 +37,8 @@ export class NativeRepl implements Disposable {
 
     private notebookDocument: NotebookDocument | undefined;
 
+    public newReplSession: boolean | undefined = true;
+
     // TODO: In the future, could also have attribute of URI for file specific REPL.
     private constructor() {
         this.watchNotebookClosed();
@@ -45,7 +50,7 @@ export class NativeRepl implements Disposable {
         nativeRepl.interpreter = interpreter;
         await nativeRepl.setReplDirectory();
         nativeRepl.pythonServer = createPythonServer([interpreter.path as string], nativeRepl.cwd);
-        nativeRepl.replController = nativeRepl.setReplController();
+        nativeRepl.setReplController();
 
         return nativeRepl;
     }
@@ -63,6 +68,7 @@ export class NativeRepl implements Disposable {
             workspace.onDidCloseNotebookDocument((nb) => {
                 if (this.notebookDocument && nb.uri.toString() === this.notebookDocument.uri.toString()) {
                     this.notebookDocument = undefined;
+                    this.newReplSession = true;
                 }
             }),
         );
@@ -107,7 +113,12 @@ export class NativeRepl implements Disposable {
      */
     public setReplController(): NotebookController {
         if (!this.replController) {
-            return createReplController(this.interpreter!.path, this.disposables, this.cwd);
+            this.replController = createReplController(this.interpreter!.path, this.disposables, this.cwd);
+            this.replController.variableProvider = new VariablesProvider(
+                new VariableRequester(this.pythonServer),
+                () => this.notebookDocument,
+                this.pythonServer.onCodeExecuted,
+            );
         }
         return this.replController;
     }
@@ -146,13 +157,11 @@ export class NativeRepl implements Disposable {
             this.replController.updateNotebookAffinity(this.notebookDocument, NotebookControllerAffinity.Default);
             await selectNotebookKernel(notebookEditor, this.replController.id, PVSC_EXTENSION_ID);
             if (code) {
-                await executeNotebookCell(this.notebookDocument, code);
+                await executeNotebookCell(notebookEditor, code);
             }
         }
     }
 }
-
-let nativeRepl: NativeRepl | undefined; // In multi REPL scenario, hashmap of URI to Repl.
 
 /**
  * Get Singleton Native REPL Instance
@@ -161,9 +170,12 @@ let nativeRepl: NativeRepl | undefined; // In multi REPL scenario, hashmap of UR
  */
 export async function getNativeRepl(interpreter: PythonEnvironment, disposables: Disposable[]): Promise<NativeRepl> {
     if (!nativeRepl) {
-        sendTelemetryEvent(EventName.REPL, undefined, { replType: 'Native' });
         nativeRepl = await NativeRepl.create(interpreter);
         disposables.push(nativeRepl);
+    }
+    if (nativeRepl && nativeRepl.newReplSession) {
+        sendTelemetryEvent(EventName.REPL, undefined, { replType: 'Native' });
+        nativeRepl.newReplSession = false;
     }
     return nativeRepl;
 }

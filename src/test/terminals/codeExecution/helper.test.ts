@@ -4,11 +4,11 @@
 'use strict';
 
 import { expect } from 'chai';
-import * as fs from 'fs-extra';
 import * as path from 'path';
 import { SemVer } from 'semver';
 import * as TypeMoq from 'typemoq';
 import { Position, Range, Selection, TextDocument, TextEditor, TextLine, Uri } from 'vscode';
+import * as fs from '../../../client/common/platform/fs-paths';
 import {
     IActiveResourceService,
     IApplicationShell,
@@ -112,7 +112,11 @@ suite('Terminal - Code Execution Helper', () => {
         activeResourceService.setup((a) => a.getActiveResource()).returns(() => resource);
         pythonSettings
             .setup((s) => s.REPL)
-            .returns(() => ({ enableREPLSmartSend: false, REPLSmartSend: false, sendToNativeREPL: false }));
+            .returns(() => ({
+                enableREPLSmartSend: false,
+                REPLSmartSend: false,
+                sendToNativeREPL: false,
+            }));
         configurationService.setup((x) => x.getSettings(TypeMoq.It.isAny())).returns(() => pythonSettings.object);
         configurationService
             .setup((c) => c.getSettings(TypeMoq.It.isAny()))

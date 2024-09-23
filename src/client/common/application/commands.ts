@@ -99,10 +99,12 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Start_Native_REPL]: [undefined | Uri];
     [Commands.Exec_In_REPL]: [undefined | Uri];
     [Commands.Exec_In_REPL_Enter]: [undefined | Uri];
+    [Commands.Exec_In_IW_Enter]: [undefined | Uri];
     [Commands.Exec_In_Terminal]: [undefined, Uri];
     [Commands.Exec_In_Terminal_Icon]: [undefined, Uri];
     [Commands.Debug_In_Terminal]: [Uri];
     [Commands.Tests_Configure]: [undefined, undefined | CommandSource, undefined | Uri];
+    [Commands.Tests_CopilotSetup]: [undefined | Uri];
     [Commands.LaunchTensorBoard]: [TensorBoardEntrypoint, TensorBoardEntrypointTrigger];
     ['workbench.view.testing.focus']: [];
     ['cursorMove']: [
