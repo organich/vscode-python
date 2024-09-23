@@ -1,13 +1,19 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { TestRun, Uri } from 'vscode';
+import { TestRun, TestRunProfileKind, Uri } from 'vscode';
 import * as path from 'path';
 import { ChildProcess } from 'child_process';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
 import { Deferred } from '../../../common/utils/async';
 import { traceError, traceInfo, traceVerbose } from '../../../logging';
-import { EOTTestPayload, ExecutionTestPayload, ITestExecutionAdapter, ITestResultResolver } from '../common/types';
+import {
+    CoveragePayload,
+    EOTTestPayload,
+    ExecutionTestPayload,
+    ITestExecutionAdapter,
+    ITestResultResolver,
+} from '../common/types';
 import {
     ExecutionFactoryCreateWithEnvironmentOptions,
     IPythonExecutionFactory,
@@ -31,7 +37,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
     async runTests(
         uri: Uri,
         testIds: string[],
-        debugBool?: boolean,
+        profileKind?: TestRunProfileKind,
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
@@ -41,7 +47,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         const deferredTillServerClose: Deferred<void> = utils.createTestingDeferred();
 
         // create callback to handle data received on the named pipe
-        const dataReceivedCallback = (data: ExecutionTestPayload | EOTTestPayload) => {
+        const dataReceivedCallback = (data: ExecutionTestPayload | EOTTestPayload | CoveragePayload) => {
             if (runInstance && !runInstance.token.isCancellationRequested) {
                 this.resultResolver?.resolveExecution(data, runInstance, deferredTillEOT);
             } else {
@@ -75,7 +81,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 deferredTillEOT,
                 serverDispose,
                 runInstance,
-                debugBool,
+                profileKind,
                 executionFactory,
                 debugLauncher,
             );
@@ -102,7 +108,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         deferredTillEOT: Deferred<void>,
         serverDispose: () => void,
         runInstance?: TestRun,
-        debugBool?: boolean,
+        profileKind?: TestRunProfileKind,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
     ): Promise<ExecutionTestPayload> {
@@ -120,6 +126,10 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
         mutableEnv.PYTHONPATH = pythonPathCommand;
         mutableEnv.TEST_RUN_PIPE = resultNamedPipeName;
+        if (profileKind && profileKind === TestRunProfileKind.Coverage) {
+            mutableEnv.COVERAGE_ENABLED = 'True';
+        }
+        const debugBool = profileKind && profileKind === TestRunProfileKind.Debug;
 
         // Create the Python environment in which to execute the command.
         const creationOptions: ExecutionFactoryCreateWithEnvironmentOptions = {
@@ -142,9 +152,9 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 testArgs = utils.addValueIfKeyNotExist(testArgs, '--capture', 'no');
             }
 
-            // add port with run test ids to env vars
-            const testIdsPipeName = await utils.startTestIdsNamedPipe(testIds);
-            mutableEnv.RUN_TEST_IDS_PIPE = testIdsPipeName;
+            // create a file with the test ids and set the environment variable to the file name
+            const testIdsFileName = await utils.writeTestIdsFile(testIds);
+            mutableEnv.RUN_TEST_IDS_PIPE = testIdsFileName;
             traceInfo(`All environment variables set for pytest execution: ${JSON.stringify(mutableEnv)}`);
 
             const spawnOptions: SpawnOptions = {
@@ -162,7 +172,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                     args: testArgs,
                     token: runInstance?.token,
                     testProvider: PYTEST_PROVIDER,
-                    runTestIdsPort: testIdsPipeName,
+                    runTestIdsPort: testIdsFileName,
                     pytestPort: resultNamedPipeName,
                 };
                 traceInfo(`Running DEBUG pytest with arguments: ${testArgs} for workspace ${uri.fsPath} \r\n`);

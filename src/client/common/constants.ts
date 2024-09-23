@@ -49,6 +49,7 @@ export namespace Commands {
     export const Exec_In_REPL = 'python.execInREPL';
     export const Exec_Selection_In_Django_Shell = 'python.execSelectionInDjangoShell';
     export const Exec_In_REPL_Enter = 'python.execInREPLEnter';
+    export const Exec_In_IW_Enter = 'python.execInInteractiveWindowEnter';
     export const Exec_Selection_In_Terminal = 'python.execSelectionInTerminal';
     export const GetSelectedInterpreterPath = 'python.interpreterPath';
     export const InstallJupyter = 'python.installJupyter';
@@ -64,6 +65,7 @@ export namespace Commands {
     export const Start_REPL = 'python.startREPL';
     export const Start_Native_REPL = 'python.startNativeREPL';
     export const Tests_Configure = 'python.configureTests';
+    export const Tests_CopilotSetup = 'python.copilotSetupTests';
     export const TriggerEnvironmentSelection = 'python.triggerEnvSelection';
     export const ViewOutput = 'python.viewOutput';
 }
