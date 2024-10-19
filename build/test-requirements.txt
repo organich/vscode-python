@@ -27,3 +27,4 @@ namedpipe; platform_system == "Windows"
 
 # typing for Django files
 django-stubs
+starlette>=0.40.0 # not directly required, pinned by Snyk to avoid a vulnerability
